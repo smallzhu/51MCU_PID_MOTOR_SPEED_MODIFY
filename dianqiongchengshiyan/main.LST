@@ -1,0 +1,130 @@
+C51 COMPILER V9.01   MAIN                                                                  10/04/2019 18:17:38 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: D:\keil 4\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg51.h>
+   2          #include<lcd_show.h>
+   3          #include<key.h>
+   4          #include<pid.h>
+   5          #include<delay.h>
+   6          
+   7          
+   8          #define INT_TIME 500
+   9          
+  10          sbit PWM = P2^3;
+  11          sbit IN1 = P2^4;
+  12          sbit IN2 = P2^5;
+  13          
+  14          uchar timer_cnt1 = 0;
+  15          uchar timer_cnt2 = 0;
+  16          bit flag_s = 0;
+  17          int duty = 0;
+  18          extern struct mPID M_Pid;
+  19          
+  20          void Int_T0_T1()
+  21          {
+  22   1              TH0 = (65536- INT_TIME)/256;   //1MS
+  23   1              TL0 = (65536- INT_TIME)%256;
+  24   1              TMOD=0x51;      //T1定时 16位 T016位
+  25   1              ET0=1;
+  26   1              EA=1;
+  27   1              TR0=1;
+  28   1              ET1=1;
+  29   1              TR1=1;
+  30   1      }
+  31          
+  32          int main()
+  33          {       
+  34   1              L1602_init();
+  35   1              delay(30);
+  36   1              Int_T0_T1();
+  37   1              PID_init();
+  38   1              speed_set = 200;
+  39   1              PWM = 1;
+  40   1              IN1 = 1;
+  41   1              IN2 = 0;
+  42   1              L1602_string(0,7,"r/min");
+  43   1              L1602_string(1,7,"r/min");
+  44   1              while(1)
+  45   1              {
+  46   2                      switch (mode)
+  47   2                      {
+  48   3                              case DIS_MAIN: proc_main(); break;
+  49   3                              case SET_KP:
+  50   3                              case SET_KI:
+  51   3                              case SET_KD:
+  52   3                                      proc_adj();
+  53   3                                      break;
+  54   3                      }
+  55   2                      if (flag_s)
+C51 COMPILER V9.01   MAIN                                                                  10/04/2019 18:17:38 PAGE 2   
+
+  56   2                      {
+  57   3                              flag_s = 0;
+  58   3                              get_sv();       //AD转
+  59   3                              if (flag_run)
+  60   3                              {
+  61   4                                      duty = PID_realize1(speed_set - speed_cnt);
+  62   4                              }
+  63   3                              switch (mode)
+  64   3                              {
+  65   4                              case DIS_MAIN: dis_main(); break;
+  66   4                              case SET_KP:
+  67   4                              case SET_KI:
+  68   4                              case SET_KD:
+  69   4                                      dis_adj();
+  70   4                                      break;
+  71   4                              }
+  72   3                      } 
+  73   2              }
+  74   1      } 
+  75          void Timer0_ser () interrupt 1
+  76          {
+  77   1              TH0 = (65536- INT_TIME)/256;
+  78   1              TL0 = (65536- INT_TIME)%256;
+  79   1              timer_cnt1++;
+  80   1              if (timer_cnt1 >= 100)
+  81   1              {
+  82   2                      timer_cnt1 = 0;
+  83   2                      timer_cnt2++;
+  84   2                      if (timer_cnt2 >= 4)
+  85   2                      {
+  86   3                              timer_cnt2 = 0;
+  87   3                              speed_cnt = 60*(TH1*256 + TL1)/(24*0.43);
+  88   3                              TH1 = 0;
+  89   3                              TL1 = 0;
+  90   3                              flag_s = 1;
+  91   3                      }
+  92   2              }
+  93   1              if (flag_run)
+  94   1              {
+  95   2                      PWM = timer_cnt1 > duty? 0 : 1;
+  96   2              }
+  97   1              else
+  98   1              {
+  99   2                      PWM = 0;
+ 100   2              }
+ 101   1      }
+ 102          /*void timer1 interrupt 3
+ 103          {
+ 104                  
+ 105          } */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    302    ----
+   CONSTANT SIZE    =      6    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      4    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

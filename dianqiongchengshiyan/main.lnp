@@ -1,0 +1,8 @@
+"STARTUP.obj",
+"delay.obj",
+"key.obj",
+"lcd_show.obj",
+"pid.obj",
+"tlc2543.obj",
+"main.obj" 
+TO "main" 

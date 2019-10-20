@@ -1,0 +1,304 @@
+C51 COMPILER V9.01   KEY                                                                   10/10/2019 23:35:46 PAGE 1   
+
+
+C51 COMPILER V9.01, COMPILATION OF MODULE KEY
+OBJECT MODULE PLACED IN key.OBJ
+COMPILER INVOKED BY: D:\keil 4\C51\BIN\C51.EXE key.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include<reg51.H>
+   2          #include<key.h>
+   3          #include<string.h>
+   4          #include<stdio.h>
+   5          #include<lcd_show.h>
+   6          #include<pid.h>
+   7          #include<tlc2543.h>
+   8          #include<delay.h>
+   9          
+  10          data char str[10];
+  11          uchar p_pos; //指针位置
+  12          uint speed_set = 0;
+  13          uint speed_cnt = 0;
+  14          int test = 333;
+  15          uchar mode = 3;
+  16          bit flag_run = 0;
+  17          float *pst;
+  18          extern struct mPID M_Pid;
+  19          
+  20          #define P_KEY P1
+  21          uchar keyscan(void)
+  22          {
+  23   1              uchar key_val;
+  24   1              uchar key_r,key_c;
+  25   1              uchar temp;
+  26   1              P_KEY = 0X0F;
+  27   1              temp = P_KEY & 0X0F;
+  28   1              if (temp != 0x0f)
+  29   1              {
+  30   2                      delay(3);
+  31   2                      temp = P_KEY & 0X0F;
+  32   2                      if (temp != 0x0f)
+  33   2                      {
+  34   3                              key_r = temp;
+  35   3                              P_KEY = 0XF0;
+  36   3                              delay(1);
+  37   3                              temp = P_KEY & 0XF0;
+  38   3                              key_c = temp;
+  39   3                              if ( key_c == 0x70 ) //最后一列
+  40   3                              {
+  41   4                                      switch (key_r)
+  42   4                                      {
+  43   5                                      case 0x0e: key_val = 16; break;
+  44   5                                      case 0x0d: key_val = 15; break;
+  45   5                                      case 0x0b: key_val = 14; break;
+  46   5                                      case 0x07: key_val = 13; break;
+  47   5                                      }
+  48   4                              }
+  49   3                              else
+  50   3                              {
+  51   4                                      switch (key_c)
+  52   4                                      {
+  53   5                                      case 0xe0: key_val = 1; break;
+  54   5                                      case 0xd0: key_val = 2; break;
+  55   5                                      case 0xb0: key_val = 3; break;
+C51 COMPILER V9.01   KEY                                                                   10/10/2019 23:35:46 PAGE 2   
+
+  56   5                                      case 0x70: key_val = 4; break;
+  57   5                                      }
+  58   4                                      switch (key_r)
+  59   4                                      {
+  60   5                                      case 0x0e: key_val += 0; break;
+  61   5                                      case 0x0d: key_val += 3; break;
+  62   5                                      case 0x0b: key_val += 6; break;
+  63   5                                      case 0x07: key_val += 9; break;
+  64   5                                      }
+  65   4                              }
+  66   3                              while (temp != 0xf0) //松手检测
+  67   3                              {
+  68   4                              temp = P_KEY & 0xf0;
+  69   4                              }
+  70   3                              return key_val;
+  71   3                      }
+  72   2              }
+  73   1              return 0;
+  74   1      }
+  75          void change_mode(uchar key)
+  76          {
+  77   1              LCD_clear();
+  78   1              switch (key)
+  79   1              {
+  80   2                      case 16: mode = SET_KP;
+  81   2                              pst = &M_Pid.Kp;
+  82   2                              L1602_string(0,0,"KP:");
+  83   2                              break;
+  84   2                      case 15: mode = SET_KI;
+  85   2                              pst = &M_Pid.Ki;
+  86   2                              L1602_string(0,0,"KI:");
+  87   2                              break;
+  88   2                      case 14: mode = SET_KD;
+  89   2                              pst = &M_Pid.Kd;
+  90   2                              L1602_string(0,0,"KD:");
+  91   2                              break;
+  92   2                      case 12: mode = DIS_MAIN;
+  93   2                              L1602_string(0,8,"r/min");
+  94   2                              L1602_string(1,8,"r/min");
+  95   2                              break;
+  96   2              }
+  97   1              if (mode != DIS_MAIN)
+  98   1              {
+  99   2                      Trans_Data_To_Disp(str, *pst, 3);
+ 100   2                      
+ 101   2                      L1602_string(1,0,"OLD:");
+ 102   2                      L1602_string(1,5,str);
+ 103   2                      p_pos = 0;
+ 104   2              }
+ 105   1              memset(str,0,17);
+ 106   1      }
+ 107          
+ 108          void dis_main()
+ 109          {
+ 110   1              L1602_string(0,0,"SV: ");
+ 111   1              L1602_string(1,0,"PV: ");
+ 112   1              dis_num(0,3,4,speed_set);
+ 113   1              dis_num(1,3,4,speed_set);
+ 114   1      }
+ 115          
+ 116          void proc_main()
+ 117          {
+C51 COMPILER V9.01   KEY                                                                   10/10/2019 23:35:46 PAGE 3   
+
+ 118   1              uchar key;
+ 119   1              key = keyscan();
+ 120   1              switch (key)
+ 121   1              {
+ 122   2                      case 16:
+ 123   2                      case 15:
+ 124   2                      case 14: change_mode(key); break;
+ 125   2                      case 13: flag_run = 1; break;
+ 126   2                      case 12: flag_run = 0; break;
+ 127   2              }
+ 128   1      }
+ 129          
+ 130          void dis_adj()
+ 131          {
+ 132   1              L1602_string(0,4,str);
+ 133   1      }
+ 134          void proc_adj()
+ 135          {
+ 136   1              uchar key;
+ 137   1              key = keyscan();
+ 138   1              if (key > 0 && key < 10)
+ 139   1              {
+ 140   2                      str[p_pos] = key + '0';
+ 141   2                      p_pos ++;
+ 142   2              }
+ 143   1              else
+ 144   1              {
+ 145   2                      switch (key)
+ 146   2                      {
+ 147   3                              case 10: str[p_pos] = '0'; p_pos++; break;
+ 148   3                              case 11: str[p_pos] = '.'; p_pos++; break;
+ 149   3                              case 16:
+ 150   3                              case 15:
+ 151   3                              case 14: change_mode(key); break;
+ 152   3                              case 13:
+ 153   3                                      *pst = str2f(str);
+ 154   3                                      //PID_init();
+ 155   3                              case 12:
+ 156   3                                      change_mode(12);
+ 157   3                                      break;
+ 158   3                      }
+ 159   2              }
+ 160   1      }
+ 161          
+ 162          /*void set_kp()
+ 163          {
+ 164                  uchar key;
+ 165                  L1602_string(0,0,"set Kp");
+ 166                  key = keyscan();
+ 167                  if (key > 0 && key < 10)
+ 168                  {
+ 169                          str[p_pos] = key + '0';
+ 170                          p_pos ++;
+ 171                  }
+ 172                  else
+ 173                  {
+ 174                          switch (key)
+ 175                          {
+ 176                                  case 10: str[p_pos] = '0'; p_pos++; break;
+ 177                                  case 11: str[p_pos] = '.'; p_pos++; break;
+ 178                                  case 16:
+ 179                                  case 15:
+C51 COMPILER V9.01   KEY                                                                   10/10/2019 23:35:46 PAGE 4   
+
+ 180                                  case 14: change_mode(key); break;
+ 181                                  case 13: break;
+ 182                          }
+ 183                  }
+ 184          }*/
+ 185          void get_sv(void)
+ 186          {
+ 187   1              uint d;
+ 188   1              d = read2543(0);
+ 189   1              speed_set = d/20;
+ 190   1      }
+ 191          
+ 192          //功能: 把float 型的f 转换到字符串str_ptr 里, 小数保留d 位
+ 193          // d=0, 去尾
+ 194          //例如: f=12.3456 ， 小数位数d=3 -> "12.345"
+ 195          /*************************************************************************/
+ 196          #define STR_END '\0'
+ 197          uchar *Trans_Data_To_Disp(uchar *str_ptr, float f, uchar d)
+ 198          {
+ 199   1              uint integral_part=0; //整数部分
+ 200   1              float decimal_part=0; //小数部分
+ 201   1              uint temp;
+ 202   1              uchar i,n;
+ 203   1              //整数部分
+ 204   1              integral_part = (uint)(f);
+ 205   1              temp=integral_part;
+ 206   1              n=0;
+ 207   1              do
+ 208   1              {
+ 209   2                      n++;
+ 210   2                      temp=(uint)(temp/10); //得到整数部分位数n
+ 211   2              }while(temp!=0);
+ 212   1              temp=integral_part;
+ 213   1              for( i=0; (i<n)&&(i<20); i++)
+ 214   1              {
+ 215   2                      *(str_ptr + n-1-i)=(uchar)(temp%10) +'0'; //从低位(str_ptr + n-1)开始，获取相应位
+ 216   2                      temp=(uint)(temp/10);
+ 217   2              }
+ 218   1              //补:原先是对应于lcd 20*2的显示的,所以有20个字符的限制,实际上float达不到这个精度
+ 219   1              if( (d==0) || (i==20) )
+ 220   1              {
+ 221   2                      *(str_ptr + i) = STR_END; //此时 i = n 或20
+ 222   2                      return str_ptr;
+ 223   2              }
+ 224   1              else
+ 225   1              {
+ 226   2                      *(str_ptr + i) = '.'; //此时 i = n ,且n < 20
+ 227   2              }
+ 228   1              //小数部分
+ 229   1              decimal_part = f - integral_part;
+ 230   1              for(i=n+1; (i<d+n+1)&&(i<20); i++)
+ 231   1              {
+ 232   2                      decimal_part = decimal_part * 10;
+ 233   2                      *(str_ptr + i) = (uchar)(decimal_part) +'0'; //从高位(str_ptr + n+1)开始，获取相应位
+ 234   2                      decimal_part = decimal_part - (uchar)(decimal_part);
+ 235   2              }
+ 236   1              *(str_ptr + i) = STR_END; //此时 i = d+n+1 或20
+ 237   1              return str_ptr;
+ 238   1      }
+ 239          
+ 240          //字符串转浮点
+ 241          float str2f(char str[])
+C51 COMPILER V9.01   KEY                                                                   10/10/2019 23:35:46 PAGE 5   
+
+ 242          {
+ 243   1              float out=0;
+ 244   1              float tmp = 0.1;
+ 245   1              char* pt = str;
+ 246   1              char ngflag = 0;
+ 247   1              while((*pt>'9' || *pt < '1') && *pt!= 0 && *pt != '.')
+ 248   1              {
+ 249   2                      if(*pt == '-')
+ 250   2                      ngflag = 1;
+ 251   2                      pt++;
+ 252   2              }
+ 253   1              while( *pt <= '9' && *pt >= '0')
+ 254   1              {
+ 255   2                      out *= 10;
+ 256   2                      out += *pt-'0';
+ 257   2                      pt++;
+ 258   2              }
+ 259   1              if( *pt == '.')
+ 260   1              {
+ 261   2                      pt++;
+ 262   2                      while(*pt <= '9' && *pt >= '0')
+ 263   2                      {
+ 264   3                              out += (*pt-'0')*tmp;
+ 265   3                              tmp *= 0.1;
+ 266   3                              pt++;
+ 267   3                      }
+ 268   2              }
+ 269   1              if(ngflag)
+ 270   1              out = -out;
+ 271   1              return out;
+ 272   1      }
+ 273          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1349    ----
+   CONSTANT SIZE    =     33    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     21      34
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
